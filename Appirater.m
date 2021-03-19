@@ -624,7 +624,7 @@ static BOOL _alwaysUseMainBundle = NO;
 }
 
 + (id)getRootViewController {
-    UIWindow *window = [[UIApplication sharedApplication] keyWindow];
+    UIWindow *window = [self keyWindow];
     if (window.windowLevel != UIWindowLevelNormal) {
         NSArray *windows = [[UIApplication sharedApplication] windows];
         for(window in windows) {
@@ -780,7 +780,7 @@ static BOOL _alwaysUseMainBundle = NO;
 		[self setModalOpen:NO];
 		
 		// get the top most controller (= the StoreKit Controller) and dismiss it
-		UIViewController *presentingController = [UIApplication sharedApplication].keyWindow.rootViewController;
+		UIViewController *presentingController = [self keyWindow].rootViewController;
 		presentingController = [self topMostViewController: presentingController];
 		[presentingController dismissViewControllerAnimated:_usesAnimation completion:^{
             id <AppiraterDelegate> delegate = self.sharedInstance.delegate;
@@ -790,6 +790,11 @@ static BOOL _alwaysUseMainBundle = NO;
 		}];
 		[self.class setStatusBarStyle:(UIStatusBarStyle)nil];
 	}
+}
+
++ (UIWindow * _Nullable)keyWindow {
+    NSPredicate *isKeyWindow = [NSPredicate predicateWithFormat:@"isKeyWindow == YES"];
+    return [[[UIApplication sharedApplication] windows] filteredArrayUsingPredicate:isKeyWindow].firstObject;
 }
 
 @end
