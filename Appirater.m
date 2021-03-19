@@ -272,65 +272,17 @@ static BOOL _alwaysUseMainBundle = NO;
 }
 
 - (void)showRatingAlert:(BOOL)displayRateLaterButton {
-  id <AppiraterDelegate> delegate = _delegate;
+    id <AppiraterDelegate> delegate = _delegate;
     
-  if(delegate && [delegate respondsToSelector:@selector(appiraterShouldDisplayAlert:)] && ![delegate appiraterShouldDisplayAlert:self]) {
-      return;
-  }
-  
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunguarded-availability"
-    if (NSStringFromClass([SKStoreReviewController class]) != nil) {
-#pragma clang diagnostic pop
-        [Appirater rateApp];
-    } else {
-        // Otherwise show a custom Alert
-        NSMutableArray *buttons = [[NSMutableArray alloc] initWithObjects:self.alertRateTitle, nil];
-        if (displayRateLaterButton) {
-            [buttons addObject:self.alertRateLaterTitle];
-        }
-        if (NSStringFromClass([UIAlertController class]) != nil) {
-            [buttons addObject:self.alertCancelTitle];
-            
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:self.alertTitle message:self.alertMessage preferredStyle:UIAlertControllerStyleAlert];
-            for (NSInteger i = 0; i < buttons.count; i++) {
-                UIAlertActionStyle style = i == buttons.count - 1 ? UIAlertActionStyleCancel : UIAlertActionStyleDefault;
-                [alert addAction:[UIAlertAction actionWithTitle:buttons[i] style:style handler:^(UIAlertAction * _Nonnull action) {
-                    NSString *title = action.title;
-                    NSInteger buttonIndex = -1;
-                    if ([title isEqual:self.alertCancelTitle]) {
-                        buttonIndex = 0;
-                    } else if ([title isEqual:self.alertRateTitle]) {
-                        buttonIndex = 1;
-                    } else if ([title isEqual:self.alertRateLaterTitle]) {
-                        buttonIndex = 2;
-                    }
-                    
-                    [self alertViewDidDismissWithButtonIndex:buttonIndex];
-                }]];
-            }
-            [[Appirater getRootViewController] presentViewController:alert animated:YES completion:nil];
-            self.ratingAlert = alert;
-        } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:self.alertTitle
-                                                                message:self.alertMessage
-                                                               delegate:self
-                                                      cancelButtonTitle:self.alertCancelTitle
-                                                      otherButtonTitles:nil];
-            for (NSString *button in buttons) {
-                [alertView addButtonWithTitle:button];
-            }
-            self.ratingAlert = alertView;
-            [alertView show];
-#pragma clang diagnostic pop
-        }
+    if(delegate && [delegate respondsToSelector:@selector(appiraterShouldDisplayAlert:)] && ![delegate appiraterShouldDisplayAlert:self]) {
+        return;
     }
-
-  if (delegate && [delegate respondsToSelector:@selector(appiraterDidDisplayAlert:)]) {
-           [delegate appiraterDidDisplayAlert:self];
-  }
+    
+    [Appirater rateApp];
+    
+    if (delegate && [delegate respondsToSelector:@selector(appiraterDidDisplayAlert:)]) {
+        [delegate appiraterDidDisplayAlert:self];
+    }
 }
 
 - (void)showRatingAlert
@@ -672,100 +624,7 @@ static BOOL _alwaysUseMainBundle = NO;
     [userDefaults setBool:YES forKey:kAppiraterRatedCurrentVersion];
     [userDefaults synchronize];
 	
-    // Use the built SKStoreReviewController if available (available from iOS 10.3 upwards)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunguarded-availability"
-    if (NSStringFromClass([SKStoreReviewController class]) != nil) {
-        [SKStoreReviewController requestReview];
-#pragma clang diagnostic pop
-        return;
-    }
-
-	//Use the in-app StoreKit view if available (iOS 6) and imported. This works in the simulator.
-	if (![Appirater sharedInstance].openInAppStore && NSStringFromClass([SKStoreProductViewController class]) != nil) {
-		
-		SKStoreProductViewController *storeViewController = [[SKStoreProductViewController alloc] init];
-		NSNumber *appId = [NSNumber numberWithInteger:_appId.integerValue];
-		[storeViewController loadProductWithParameters:@{SKStoreProductParameterITunesItemIdentifier:appId} completionBlock:nil];
-		storeViewController.delegate = self.sharedInstance;
-        
-        id <AppiraterDelegate> delegate = self.sharedInstance.delegate;
-		if ([delegate respondsToSelector:@selector(appiraterWillPresentModalView:animated:)]) {
-			[delegate appiraterWillPresentModalView:self.sharedInstance animated:_usesAnimation];
-		}
-		[[self getRootViewController] presentViewController:storeViewController animated:_usesAnimation completion:^{
-			[self setModalOpen:YES];
-		}];
-	
-	//Use the standard openUrl method if StoreKit is unavailable.
-	} else {
-		
-		#if TARGET_IPHONE_SIMULATOR
-		NSLog(@"APPIRATER NOTE: iTunes App Store is not supported on the iOS simulator. Unable to open App Store page.");
-		#else
-		NSString *reviewURL = [templateReviewURL stringByReplacingOccurrencesOfString:@"APP_ID" withString:_appId];
-
-		// iOS 7 needs a different templateReviewURL @see https://github.com/arashpayan/appirater/issues/131
-        // Fixes condition @see https://github.com/arashpayan/appirater/issues/205
-		if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 7.0 && [[[UIDevice currentDevice] systemVersion] floatValue] < 8.0) {
-			reviewURL = [templateReviewURLiOS7 stringByReplacingOccurrencesOfString:@"APP_ID" withString:_appId];
-		}
-        // iOS 8 needs a different templateReviewURL also @see https://github.com/arashpayan/appirater/issues/182
-        else if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 8.0)
-        {
-            reviewURL = [templateReviewURLiOS8 stringByReplacingOccurrencesOfString:@"APP_ID" withString:_appId];
-        }
-
-		[[UIApplication sharedApplication] openURL:[NSURL URLWithString:reviewURL]];
-		#endif
-	}
-}
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-implementations"
-- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
-    [self alertViewDidDismissWithButtonIndex:buttonIndex];
-}
-#pragma clang diagnostic pop
-
-- (void)alertViewDidDismissWithButtonIndex:(NSInteger)buttonIndex {
-    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-    
-    id <AppiraterDelegate> delegate = _delegate;
-    
-    switch (buttonIndex) {
-        case 0:
-        {
-            // they don't want to rate it
-            [userDefaults setBool:YES forKey:kAppiraterDeclinedToRate];
-            [userDefaults synchronize];
-            if(delegate && [delegate respondsToSelector:@selector(appiraterDidDeclineToRate:)]){
-                [delegate appiraterDidDeclineToRate:self];
-            }
-            break;
-        }
-        case 1:
-        {
-            // they want to rate it
-            [Appirater rateApp];
-            if(delegate&& [delegate respondsToSelector:@selector(appiraterDidOptToRate:)]){
-                [delegate appiraterDidOptToRate:self];
-            }
-            break;
-        }
-        case 2:
-            // remind them later
-            [userDefaults setDouble:[[NSDate date] timeIntervalSince1970] forKey:kAppiraterReminderRequestDate];
-            [userDefaults synchronize];
-            if(delegate && [delegate respondsToSelector:@selector(appiraterDidOptToRemindLater:)]){
-                [delegate appiraterDidOptToRemindLater:self];
-            }
-            break;
-        default:
-            break;
-    }
-    
-    self.ratingAlert = nil;
+    [SKStoreReviewController requestReview];
 }
 
 //Delegate call from the StoreKit view.
